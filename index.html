@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+
+<html lang="en">
+  <body>
+    <h1>Live Update</h1>
+    <ul id="links"></ul>
+  </body>
+</html>
+
+<script>
+  document.addEventListener("onload", function () {});
+
+  function download(link) {
+    fetch("/download", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ url: link }),
+    })
+      .then((res) => res.text())
+      .then((data) => {
+        console.log(data);
+      });
+  }
+
+  function fetchList() {
+    fetch("/list")
+      .then((res) => res.json())
+      .then((list) => {
+        let html = "";
+        if (list && list.length != 0) {
+          for (let i = 0; i < list.length; i++) {
+            html += `<li><button onclick="download('${list[i]}')">DL</button>${list[i]}</li>`;
+            document.querySelector("#links").innerHTML += html;
+          }
+        }
+        console.log("LIST" + list);
+      });
+  }
+
+  setInterval(() => {
+    fetchList();
+  }, 3000);
+</script>

@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 func merge(folder string) {
@@ -52,7 +54,9 @@ func merge(folder string) {
 			panic(err)
 		}
 
-		fileList[index-1] = file.Name()
+		if index-1 < len(fileList) {
+			fileList[index-1] = file.Name()
+		}
 	}
 
 	for _, file := range fileList {
@@ -150,8 +154,11 @@ const (
 	MAX_WORKERS = 15
 )
 
-func main() {
-	link := os.Args[1]
+type UrlRequest struct {
+	Url string `json:"url"`
+}
+
+func doDownload(link string) {
 	contents := downloadList(link)
 
 	scanner := bufio.NewScanner(contents)
@@ -183,4 +190,56 @@ func main() {
 
 	fmt.Printf("Jobs done %d\n", progress)
 	merge(folder)
+}
+
+func main() {
+	link := os.Args[1]
+
+	var lists []string
+	lists = append(lists, "https://github.com/seeya")
+
+	if link == "server" {
+		app := fiber.New()
+
+		app.Get("/", func(c *fiber.Ctx) error {
+			c.Set(fiber.HeaderContentType, fiber.MIMETextHTML)
+			return c.SendFile("./index.html")
+		})
+
+		app.Get("/list", func(c *fiber.Ctx) error {
+			return c.JSON(lists)
+		})
+
+		app.Post("/", func(c *fiber.Ctx) error {
+			var urlReq UrlRequest
+			err := c.BodyParser(&urlReq)
+			if err != nil {
+				fmt.Printf("failed to parse body, err: %s\n", err)
+				return c.SendString("failed to parse body")
+			}
+
+			fmt.Printf("%s\n", urlReq.Url)
+
+			lists = append(lists, urlReq.Url)
+
+			return c.SendString("ok")
+		})
+
+		app.Post("/download", func(c *fiber.Ctx) error {
+			var urlReq UrlRequest
+			err := c.BodyParser(&urlReq)
+			if err != nil {
+				fmt.Printf("failed to parse body, err: %s\n", err)
+				return c.SendString("failed to parse body")
+			}
+
+			go doDownload(urlReq.Url)
+
+			return c.SendString("downloading")
+		})
+
+		app.Listen(":3000")
+	}
+
+	doDownload(link)
 }
