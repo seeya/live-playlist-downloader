@@ -9,7 +9,7 @@ const isFF = window.browser ? true : false;
 const reqBodyHeaders = isFF ? ["requestBody"] : ["requestBody", "extraHeaders"];
 const resHeaders = isFF ? ["responseHeaders"] : ["responseHeaders", "extraHeaders"];
 
-const pattern = ["index-f1-v1-a1.m3u8", "index-v1-a1.m3u8"];
+const pattern = [".m3u8"];
 
 r.onCompleted.addListener(
   function (details) {

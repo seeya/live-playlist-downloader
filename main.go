@@ -77,7 +77,7 @@ func merge(folder string) {
 
 	if err != nil {
 		fmt.Printf("Error merging files, err: %s\n", err)
-		panic(err)
+		// panic(err)
 	}
 
 	cleanup(fmt.Sprintf("./downloads/%s", folder))
@@ -144,7 +144,6 @@ func downloadList(url string) io.Reader {
 	resp, err := http.Get(url)
 
 	if err != nil {
-		panic(err)
 	}
 
 	return resp.Body
@@ -192,6 +191,16 @@ func doDownload(link string) {
 	merge(folder)
 }
 
+func removeElement(slice []string, index int) []string {
+
+	// Append function used to append elements to a slice
+	// first parameter as the slice to which the elements
+	// are to be added/appended second parameter is the
+	// element(s) to be appended into the slice
+	// return value as a slice
+	return append(slice[:index], slice[index+1:]...)
+}
+
 func main() {
 	link := os.Args[1]
 
@@ -234,6 +243,13 @@ func main() {
 			}
 
 			go doDownload(urlReq.Url)
+
+			for i, val := range lists {
+				if val == urlReq.Url {
+					lists = removeElement(lists, i)
+					return c.SendString("removed from list")
+				}
+			}
 
 			return c.SendString("downloading")
 		})

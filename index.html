@@ -10,7 +10,8 @@
 <script>
   document.addEventListener("onload", function () {});
 
-  function download(link) {
+  function download(e, link) {
+    e.style.backgroundColor = "green";
     fetch("/download", {
       method: "POST",
       headers: {
@@ -31,11 +32,10 @@
         let html = "";
         if (list && list.length != 0) {
           for (let i = 0; i < list.length; i++) {
-            html += `<li><button onclick="download('${list[i]}')">DL</button>${list[i]}</li>`;
-            document.querySelector("#links").innerHTML += html;
+            html += `<li><button style="background-color: yellow;" onclick="download(this, '${list[i]}')">DL</button>${list[i]}</li>`;
           }
         }
-        console.log("LIST" + list);
+        if (html != "") document.querySelector("#links").innerHTML = html;
       });
   }
 
