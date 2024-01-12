@@ -2,6 +2,9 @@
 
 <html lang="en">
   <body>
+    <h2>Filter</h2>
+    <p>Enter each filter in each line below</p>
+    <textarea id="filter" rows="3" style="width: 50%">f2-v1</textarea>
     <h1>Live Update</h1>
     <ul id="links"></ul>
   </body>
@@ -25,14 +28,31 @@
       });
   }
 
+  function isValidLink(link) {
+    let filters = document.querySelector("#filter").value.split("\n");
+    for (let i = 0; i < filters.length; i++) {
+      console.log(filters[i]);
+      if (link.indexOf(filters[i]) == -1) return false;
+    }
+    return true;
+  }
+
   function fetchList() {
     fetch("/list")
       .then((res) => res.json())
       .then((list) => {
         let html = "";
         if (list && list.length != 0) {
+          let map = {};
           for (let i = 0; i < list.length; i++) {
-            html += `<li><button style="background-color: yellow;" onclick="download(this, '${list[i]}')">DL</button>${list[i]}</li>`;
+            map[list[i]] = true;
+          }
+
+          list = Object.keys(map);
+          for (let i = 0; i < list.length; i++) {
+            if (isValidLink(list[i])) {
+              html += `<li><button style="background-color: yellow;" onclick="download(this, '${list[i]}')">DL</button>${list[i]}</li>`;
+            }
           }
         }
         if (html != "") document.querySelector("#links").innerHTML = html;

@@ -15,55 +15,21 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func merge(folder string) {
-	dir, err := os.ReadDir(fmt.Sprintf("./downloads/%s", folder))
-
-	if err != nil {
-		panic(err)
-	}
-
+func merge(folder string, totalFiles int) {
 	linksPath := fmt.Sprintf("./downloads/%s/mylist.txt", folder)
 	fd, err := os.Create(linksPath)
 	defer os.RemoveAll(linksPath)
 
 	if err != nil {
-		panic(err)
+		fmt.Printf("failed to create file, err: %s\n", err)
+		return
 	}
 
 	writer := bufio.NewWriter(fd)
 
-	/*
-	   The file name should be in the format seg-1-f1-v1-a1.ts
-	   We first create a string array of size len(dir)
-	   Then we loop through the dir and split the file name by - to obtain its index
-	   We then put the file name in the array at the index - 1
-	   Once done, we loop through the array and write the file name to the mylist.txt file
-	*/
-
-	fileList := make([]string, len(dir))
-	for _, file := range dir {
-		splitted := strings.Split(file.Name(), "-")
-
-		if len(splitted) == 1 {
-			continue
-		}
-
-		index, err := strconv.Atoi(splitted[1])
-
-		if err != nil {
-			panic(err)
-		}
-
-		if index-1 < len(fileList) {
-			fileList[index-1] = file.Name()
-		}
-	}
-
-	for _, file := range fileList {
-		if file != "" {
-			writer.Write([]byte(fmt.Sprintf("file '%s'\n", file)))
-			writer.Flush()
-		}
+	for i := 1; i <= totalFiles; i++ {
+		writer.Write([]byte(fmt.Sprintf("file '%d'\n", i+1)))
+		writer.Flush()
 	}
 
 	cmd := exec.Command("ffmpeg", "-f", "concat", "-i", fmt.Sprintf("./downloads/%s/mylist.txt", folder), "-c", "copy", "-bsf:a", "aac_adtstoasc", fmt.Sprintf("./downloads/%s/video.mp4", folder))
@@ -77,7 +43,7 @@ func merge(folder string) {
 
 	if err != nil {
 		fmt.Printf("Error merging files, err: %s\n", err)
-		// panic(err)
+		return
 	}
 
 	cleanup(fmt.Sprintf("./downloads/%s", folder))
@@ -88,7 +54,8 @@ func merge(folder string) {
 func cleanup(folder string) {
 	dir, err := os.ReadDir(folder)
 	if err != nil {
-		panic(err)
+		fmt.Printf("failed to read dir, err: %s\n", err)
+		return
 	}
 
 	for _, file := range dir {
@@ -98,43 +65,25 @@ func cleanup(folder string) {
 	}
 }
 
-func download(url string, folder string) {
-	resp, err := http.Get(url)
+func download(job Job, folder string) {
+	resp, err := http.Get(job.Link)
 
 	if err != nil {
-		fmt.Printf("Error downloading %s, err: %s\n", url, err)
+		fmt.Printf("Error downloading %s, err: %s\n", job.Link, err)
 	}
 
-	index := strings.Index(url, ".ts")
-
-	if index == -1 {
-		fmt.Printf("No found name found in link %s\n", url)
-	}
-
-	foundStartOfFileName := false
-	cursor := index
-
-	for foundStartOfFileName == false {
-		cursor -= 1
-
-		if url[cursor] == '/' {
-			foundStartOfFileName = true
-		}
-	}
-
-	filename := url[cursor : index+3]
-	outFile, err := os.Create(fmt.Sprintf("./downloads/%s/%s", folder, filename))
+	outFile, _ := os.Create(fmt.Sprintf("./downloads/%s/%d", folder, job.Index))
 	defer outFile.Close()
 
-	_, err = io.Copy(outFile, resp.Body)
+	_, _ = io.Copy(outFile, resp.Body)
 }
 
-func worker(jobs chan string, folder string) {
+func worker(jobs chan Job, folder string) {
 	go func() {
 		for {
 			select {
-			case link := <-jobs:
-				download(link, folder)
+			case job := <-jobs:
+				download(job, folder)
 			}
 		}
 	}()
@@ -157,19 +106,32 @@ type UrlRequest struct {
 	Url string `json:"url"`
 }
 
+type Job struct {
+	Index int
+	Link  string
+}
+
 func doDownload(link string) {
 	contents := downloadList(link)
 
 	scanner := bufio.NewScanner(contents)
 
-	jobs := make(chan string, MAX_WORKERS)
+	jobs := make(chan Job, MAX_WORKERS)
 
 	folder := time.Now().Format("20060102150405")
 
+	// showName := "A-J"
+	// folder = strings.Split(link, showName)[1]
+	// folder = strings.Split(folder, "/")[0]
+	// folder = fmt.Sprintf("%s%s", showName, folder)
+
 	err := os.Mkdir(fmt.Sprintf("./downloads/%s", folder), 0777)
 	if err != nil {
-		panic(err)
+		fmt.Printf("failed to create folder, err: %s\n", err)
+		return
 	}
+
+	os.WriteFile(fmt.Sprintf("./downloads/%s/link.txt", folder), []byte(link), 0777)
 
 	for i := 0; i < MAX_WORKERS; i++ {
 		go worker(jobs, folder)
@@ -183,12 +145,12 @@ func doDownload(link string) {
 		if strings.Contains(line, "https") {
 			progress += 1
 			fmt.Printf("Count: %d\n", progress)
-			jobs <- line
+			jobs <- Job{Index: progress, Link: line}
 		}
 	}
 
 	fmt.Printf("Jobs done %d\n", progress)
-	merge(folder)
+	merge(folder, progress)
 }
 
 func removeElement(slice []string, index int) []string {
@@ -202,6 +164,9 @@ func removeElement(slice []string, index int) []string {
 }
 
 func main() {
+	AUTO_DOWNLOAD := false
+	AUTO_DOWNLOAD_FILTER := ".m3u8"
+	AUTO_DOWNLOAD_FILTER_IGNORE := ""
 	link := os.Args[1]
 
 	var lists []string
@@ -227,9 +192,23 @@ func main() {
 				return c.SendString("failed to parse body")
 			}
 
+			for _, val := range lists {
+				if val == urlReq.Url {
+					return c.SendString("already in list")
+				}
+			}
+
 			fmt.Printf("%s\n", urlReq.Url)
 
-			lists = append(lists, urlReq.Url)
+			if AUTO_DOWNLOAD {
+				if strings.Contains(urlReq.Url, AUTO_DOWNLOAD_FILTER) {
+					if !strings.Contains(urlReq.Url, AUTO_DOWNLOAD_FILTER_IGNORE) {
+						go doDownload(urlReq.Url)
+					}
+				}
+			} else {
+				lists = append(lists, urlReq.Url)
+			}
 
 			return c.SendString("ok")
 		})
@@ -255,6 +234,10 @@ func main() {
 		})
 
 		app.Listen(":3000")
+	} else if link == "merge" {
+		total, _ := strconv.Atoi(os.Args[3])
+		merge(os.Args[2], total)
+		return
 	}
 
 	doDownload(link)
