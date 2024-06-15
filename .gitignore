@@ -1,2 +1,5 @@
 downloads/*
 live-playlist-downloader-arm64
+*.mp4
+store.json
+output/*/*
