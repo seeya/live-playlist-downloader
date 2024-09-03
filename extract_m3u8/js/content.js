@@ -17,13 +17,15 @@ r.onCompleted.addListener(
       const p = pattern[i];
 
       if (details.url.indexOf(p) != -1) {
-        fetch("http://localhost:3000", {
+        fetch("http://localhost:3002", {
           method: "POST",
           headers: {
             "Content-type": "application/json",
           },
           body: JSON.stringify({
             url: details.url,
+            initiator: details.initiator,
+            documentId: details.documentId
           }),
         });
       }
