@@ -42,6 +42,8 @@ type ChromeRequest struct {
 	DocumentId string
 	Url        string
 	Initiator  string
+	Title      string
+	OriginUrl  string
 }
 
 func (s *Store) IsDocumentExists(documentId string) bool {

@@ -28,7 +28,10 @@ func DownloadM3U8(store *models.Store) func(http.ResponseWriter, *http.Request) 
 			return
 		}
 
-		fmt.Printf("Link: %s\nInitiator: %s\nDocumentId: %s\n\n", payload.Url, payload.Initiator, payload.DocumentId)
+		fmt.Printf("Title: %s\n", payload.Title)
+		fmt.Printf("Origin: %s\n", payload.OriginUrl)
+		fmt.Printf("Download Link: %s\n", payload.Url)
+
 		if store.IsDocumentExists(payload.DocumentId) {
 			fmt.Println("Link already exists, skipping")
 		} else {
